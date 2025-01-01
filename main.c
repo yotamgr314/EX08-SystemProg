@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <time.h>
 
-// Struct representing a timeout event NOTE: this struct is like the node struct.
+// NOTE: this Struct Represents an individual task to be executed after a delay. its the Node of the LL.
 typedef struct TimeoutEvent
 {
     int timeout_ms;            // Timeout in milliseconds
@@ -13,7 +13,7 @@ typedef struct TimeoutEvent
     struct TimeoutEvent *next; // Pointer to the next event in the queue
 } TimeoutEvent;
 
-// Struct representing the timer queue NOTE: this struct is like the ll struct.
+//NOTE: This struct represents the queue of tasks waiting to be executed.NOTE: this struct is like the ll struct.
 typedef struct TimerQueue
 {
     TimeoutEvent *head;    // Head of the linked list of events
