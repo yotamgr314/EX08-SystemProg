@@ -12,6 +12,7 @@ typedef struct TimeoutEvent {
     struct TimeoutEvent *next;       // Pointer to the next event in the queue
 } TimeoutEvent;
 
+
 // Struct representing the timer queue
 typedef struct TimerQueue {
     TimeoutEvent *head;              // Head of the linked list of events
@@ -19,8 +20,10 @@ typedef struct TimerQueue {
     pthread_cond_t cond;             // Condition variable to signal threads
 } TimerQueue;
 
+
 // Function to add a timeout event to the queue
-void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void *), void *arg) {
+void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void *), void *arg) 
+{
     // Allocate memory for the new event
     TimeoutEvent *event = (TimeoutEvent *)malloc(sizeof(TimeoutEvent));
     event->timeout_ms = timeout_ms;  // Set the timeout in milliseconds
@@ -29,27 +32,29 @@ void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void 
     event->next = NULL;              // Initialize the next pointer to NULL
 
     pthread_mutex_lock(&queue->mutex); // Lock the mutex to ensure exclusive access to the queue
-
-    // Insert the event in the queue in sorted order based on timeout_ms
-    if (!queue->head || queue->head->timeout_ms > timeout_ms) {
-        event->next = queue->head;   // Insert at the head if it is the earliest event
+    if (!queue->head || queue->head->timeout_ms > timeout_ms) // NOTE : if list is empty or the new event is the earliest.
+    {
+        event->next = queue->head; // Insert at the head if it is the earliest event
         queue->head = event;
     } else {
         TimeoutEvent *current = queue->head;
         // Traverse the queue to find the correct position
-        while (current->next && current->next->timeout_ms <= timeout_ms) {
+        while (current->next && current->next->timeout_ms <= timeout_ms) 
+        {
             current = current->next;
         }
         event->next = current->next; // Insert the event in the correct position
         current->next = event;
     }
 
-    pthread_cond_signal(&queue->cond); // Signal the condition variable to wake up waiting threads
+    pthread_cond_signal(&queue->cond); // sends a signal to the thread that is waiting on that condition.
+
     pthread_mutex_unlock(&queue->mutex); // Unlock the mutex
 }
 
 // Function for the timer thread to process events
-void *timer_thread(void *arg) {
+void *timer_thread(void *arg) 
+{
     TimerQueue *queue = (TimerQueue *)arg; // Get the timer queue from the argument
 
     while (1) { // Infinite loop to continuously process events
