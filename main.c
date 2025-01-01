@@ -71,11 +71,14 @@ void *timer_thread(void *arg)
 
         TimeoutEvent *event = queue->head; // Get the head event
 
-        struct timespec now;
-        clock_gettime(CLOCK_REALTIME, &now); // NOTE: retrieves the current time from the system clock and saves  it in a struct timespec.
+        struct timespec now; // NOTE: declares a struct of type timespec ( from time.h), which has 2 fields:
+                             // 01) tv_sec: Represents seconds since the Unix epoch (00:00:00 UTC, January 1, 1970).
+                             // 02) tv_nsec: Represents nanoseconds (fractional part of a second) within the current second.
+
+        clock_gettime(CLOCK_REALTIME, &now); // : populates the "now" struct with the current real-world time (in seconds and nanoseconds). NOTE : the CLOCK_REALTIME is a macro defined in time.h 
 
         // Calculate the remaining wait time for the event
-        int wait_time = event->timeout_ms - (now.tv_sec * 1000 + now.tv_nsec / 1000000);
+        int wait_time = event->timeout_ms - (now.tv_sec * 1000 + now.tv_nsec / 1000000); // NOTE: one sec = 1000 mili seconds.
         if (wait_time > 0)
         {
             struct timespec ts;
