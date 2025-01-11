@@ -6,27 +6,30 @@
 #include <time.h>
 
 // Function to unlock the mutex (wrapper for pthread_mutex_unlock)
-void unlock_mutex(void *arg) {
+void unlock_mutex(void *arg)
+{
     pthread_mutex_unlock((pthread_mutex_t *)arg);
 }
 
 // Struct for timeout event
-typedef struct TimeoutEvent {
-    int timeout_ms; // pop timing
-    void (*callback)(void *); // a function pointer.
-    void *arg; // arguments for the callback function.
+typedef struct TimeoutEvent
+{
+    int timeout_ms;            // pop timing
+    void (*callback)(void *);  // a function pointer.
+    void *arg;                 // arguments for the callback function.
     struct TimeoutEvent *next; // next event in the queue.
 } TimeoutEvent;
 
 // Struct for timer queue
-typedef struct TimerQueue {
+typedef struct TimerQueue
+{
     TimeoutEvent *head;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } TimerQueue;
 
 // Function to add a timeout event to its correct position in the list (based on its newEvent.timeout_ms value)
-void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void *), void *arg) 
+void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void *), void *arg)
 {
     TimeoutEvent *event = (TimeoutEvent *)malloc(sizeof(TimeoutEvent));
     event->timeout_ms = timeout_ms;
@@ -40,9 +43,11 @@ void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void 
     {
         event->next = queue->head;
         queue->head = event;
-    } else { // else - find the new event currect position in the list (based on his timeout_ms value).
+    }
+    else
+    { // else - find the new event currect position in the list (based on his timeout_ms value).
         TimeoutEvent *current = queue->head;
-        while (current->next && current->next->timeout_ms <= timeout_ms) 
+        while (current->next && current->next->timeout_ms <= timeout_ms)
         {
             current = current->next;
         }
@@ -55,16 +60,19 @@ void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void 
 }
 
 // Timer thread function
-void *timer_thread(void *arg) {
+void *timer_thread(void *arg)
+{
     TimerQueue *queue = (TimerQueue *)arg;
 
     // Register cleanup handler to unlock the mutex if the thread is canceled
     pthread_cleanup_push(unlock_mutex, &queue->mutex);
 
-    while (1) {
+    while (1)
+    {
         pthread_mutex_lock(&queue->mutex);
 
-        while (!queue->head) {
+        while (!queue->head)
+        {
             pthread_cond_wait(&queue->cond, &queue->mutex);
         }
 
@@ -74,20 +82,24 @@ void *timer_thread(void *arg) {
         clock_gettime(CLOCK_REALTIME, &now);
 
         int wait_time = event->timeout_ms - (now.tv_sec * 1000 + now.tv_nsec / 1000000);
-        if (wait_time > 0) {
+        if (wait_time > 0)
+        {
             struct timespec ts;
             ts.tv_sec = now.tv_sec + wait_time / 1000;
             ts.tv_nsec = now.tv_nsec + (wait_time % 1000) * 1000000;
             pthread_cond_timedwait(&queue->cond, &queue->mutex, &ts);
         }
 
-        if (queue->head == event) {
+        if (queue->head == event)
+        {
             queue->head = event->next;
             pthread_mutex_unlock(&queue->mutex);
 
             event->callback(event->arg);
             free(event);
-        } else {
+        }
+        else
+        {
             pthread_mutex_unlock(&queue->mutex);
         }
     }
@@ -97,19 +109,23 @@ void *timer_thread(void *arg) {
 }
 
 // Sample callback function
-void sample_callback(void *arg) {
+void sample_callback(void *arg)
+{
     char *message = (char *)arg;
     printf("Timer expired: %s\n", message);
 }
 
 // Main function to demonstrate usage
-int main() {
+int main()
+{
     TimerQueue queue = {NULL, PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER};
     pthread_t timer_thread_ids[3];
 
     // Create 3 timer threads
-    for (int i = 0; i < 3; i++) {
-        pthread_create(&timer_thread_ids[i], NULL, timer_thread, &queue);
+    for (int i = 0; i < 3; i++)
+    {
+        // int pthread_create(pthread_t * thread, const pthread_attr_t *thread_attr, void *(*callbackFunc)(void *), void *callBackFuncArguments )
+        pthread_create(&timer_thread_ids[i], NULL, timer_thread, &queue); // passing NULL means the default thread intizliation.
     }
 
     // Add multiple events to the queue
@@ -122,12 +138,14 @@ int main() {
     sleep(5); // Let the threads process events for 5 seconds
 
     // Cancel the threads
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++)
+    {
         pthread_cancel(timer_thread_ids[i]);
     }
 
     // Join the threads
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 3; i++)
+    {
         pthread_join(timer_thread_ids[i], NULL);
     }
 
