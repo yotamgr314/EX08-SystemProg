@@ -59,7 +59,7 @@ void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void 
     pthread_mutex_unlock(&queue->mutex);
 }
 
-// Timer thread function
+// the function executed by the timer thread. It listens for timeout events in the queue and executes the associated callback functions at the right time
 void *timer_thread(void *arg)
 {
     TimerQueue *queue = (TimerQueue *)arg;
@@ -108,7 +108,7 @@ void *timer_thread(void *arg)
     return NULL;
 }
 
-// Sample callback function
+// the actual callback function that the timer thread calls when a timeout event expires.
 void sample_callback(void *arg)
 {
     char *message = (char *)arg;
