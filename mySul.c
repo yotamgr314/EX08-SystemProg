@@ -118,7 +118,8 @@ void sample_callback(void *arg)
 // Main function to demonstrate usage
 int main()
 {
-    TimerQueue queue = {NULL, PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER};
+    TimerQueue queue = {NULL, PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER}; // Static initialization of the struct. The mutex and condition variable are initialized using static macros PTHREAD_MUTEX_INITIALIZER and PTHREAD_COND_INITIALIZER, which set them up at compile time.
+
     pthread_t timer_thread_ids[3];
 
     // Create 3 timer threads
