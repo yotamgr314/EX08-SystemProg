@@ -26,6 +26,15 @@ pthread_cond_t new_event_cond;
 }Shared_event_queue;
 
 
+// sample callback func
+
+void sample_bacllback(void * arg)
+{
+    char * message = (char*)arg;
+    printf("timer expired: %s\n", message);
+}
+
+
 int flag = 1;
 
 void *consumer_timer_thread_func(void* arg)
@@ -75,6 +84,38 @@ void *consumer_timer_thread_func(void* arg)
     
 }
 
+void add_event (Shared_event_queue* shared_event_queue, int timeout_ms, void(*callback_func)(void *),void *arg)
+{
+    Events* newEvent = (Events*)malloc(sizeof(Events));
+
+    newEvent->timeout_ms = timeout_ms;
+    newEvent->callback_func = callback_func;
+    newEvent->arg = arg;
+    newEvent->nextEvent = NULL;
+
+/* 
+    // insert the new event to the shared_event_queue in its right order.
+    // first lock the shared event_queue recource.
+    pthread_mutex_lock(&shared_event_queue->queue_mutex);
+ */
+
+    if(shared_event_queue->eventHead == NULL) // if there queue is empty
+    {
+        shared_event_queue->eventHead = newEvent;
+    }
+
+    Events* currEvent = shared_event_queue->eventHead;
+    while(currEvent->nextEvent != NULL && currEvent->nextEvent->timeout_ms < newEvent->timeout_ms)
+    {
+        currEvent = currEvent->nextEvent;
+    }
+    newEvent->nextEvent = currEvent->nextEvent;
+    currEvent->nextEvent = newEvent;
+
+    pthread_cond_signal(&shared_event_queue->new_event_cond);
+
+}
+
 
 
 int main () {
@@ -84,6 +125,15 @@ int main () {
     pthread_t consumerThreads;
 
     pthread_create(&consumerThreads,NULL,&consumer_timer_thread_func, &shared_event_queue);
+
+
+    add_event (&shared_event_queue,2000,sample_bacllback,"hello event1");\
+
+    // add one before closest timeout
+    add_event (&shared_event_queue,1000,sample_bacllback,"hello event2");
+
+    // add one after closest timeout
+    add_event (&shared_event_queue,3000,sample_bacllback,"hello event3");
 
 
     pthread_join(consumerThreads, NULL);
