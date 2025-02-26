@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <time.h>
+#include <time.h> 
 
 // Function to unlock the mutex (wrapper for pthread_mutex_unlock)
 void unlock_mutex(void *arg)
@@ -34,7 +34,7 @@ void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void 
     TimeoutEvent *event = (TimeoutEvent *)malloc(sizeof(TimeoutEvent));
     event->timeout_ms = timeout_ms;
     event->callback = callback;
-    event->arg = arg;
+    event->arg = arg; // the arguments which passed to the callback func in each event. (since its a shared queue recource the consumer thread func will get the head node of that queue and call this callback func)
     event->next = NULL;
 
     pthread_mutex_lock(&queue->mutex);
