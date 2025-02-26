@@ -72,7 +72,8 @@ void *timer_thread(void *arg)
         pthread_mutex_lock(&queue->mutex); // locking the shared queue recource.
 
         while (!queue->head) // if there are no eventes to execute in the shared queueu recouce then wait upon a condition from the shared queue recource., the mutex is automaticly unlocked until the the thred which executed this func will get a signal.
-        {
+        {                    // The while loop ensures that the thread only proceeds if two conditions are met: 1. The thread is awakened by a signal. 2. After waking up, the shared queue is not empty (i.e., queue->head is not NULL),
+                             // If the queue is still empty (because another thread consumed the event) the loop continues, and the thread waits again.
             pthread_cond_wait(&queue->cond, &queue->mutex);
         }
 
