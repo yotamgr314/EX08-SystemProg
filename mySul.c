@@ -55,42 +55,43 @@ void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void 
         current->next = event;
     }
 
-    pthread_cond_signal(&queue->cond);
+    pthread_cond_signal(&queue->cond); // once the shared queue is updated whith a new event - we will randomly allert one of the consumer threads which waiting on the queue cond signal that there is a new event in the shared queue. 
     pthread_mutex_unlock(&queue->mutex);
 }
 
 // the function executed by the timer thread. It listens for timeout events in the queue and executes the associated callback functions at the right time
 void *timer_thread(void *arg)
 {
-    TimerQueue *queue = (TimerQueue *)arg;
+    TimerQueue *queue = (TimerQueue *)arg; // shared queue recource. 
 
     // Register cleanup handler to unlock the mutex if the thread is canceled
     pthread_cleanup_push(unlock_mutex, &queue->mutex);
 
     while (1)
     {
-        pthread_mutex_lock(&queue->mutex);
+        pthread_mutex_lock(&queue->mutex); // locking the shared queue recource.
 
-        while (!queue->head)
+        while (!queue->head) // if there are no eventes to execute in the shared queueu recouce then wait upon a condition from the shared queue recource., the mutex is automaticly unlocked until the the thred which executed this func will get a signal.
         {
             pthread_cond_wait(&queue->cond, &queue->mutex);
         }
 
-        TimeoutEvent *event = queue->head;
+        TimeoutEvent *event = queue->head; // if we are here it means that a new event has been added to the head of the shared queue recource, hence we will compare its time with the current time of the PC, if the efresh is > 0 we will cond_timed_wait on that efresh.
+                                           /// which automaticly relase the mutex on the shared queue recource and will make the thread who executed that function continute his executation in that efresh time
 
         struct timespec now;
         clock_gettime(CLOCK_REALTIME, &now);
 
-        int wait_time = event->timeout_ms - (now.tv_sec * 1000 + now.tv_nsec / 1000000);
+        int wait_time = event->timeout_ms - (now.tv_sec * 1000 + now.tv_nsec / 1000000); // calculate the efresh. 
         if (wait_time > 0)
         {
             struct timespec ts;
             ts.tv_sec = now.tv_sec + wait_time / 1000;
             ts.tv_nsec = now.tv_nsec + (wait_time % 1000) * 1000000;
-            pthread_cond_timedwait(&queue->cond, &queue->mutex, &ts);
+            pthread_cond_timedwait(&queue->cond, &queue->mutex, &ts); // sleep for the efresh time..
         }
 
-        if (queue->head == event)
+        if (queue->head == event) // if after the efresh time is done the timed out event is still in the head of the shared queue recouce - then execute it ! 
         {
             queue->head = event->next;
             pthread_mutex_unlock(&queue->mutex);
@@ -128,6 +129,8 @@ int main()
         // int pthread_create(pthread_t * thread, const pthread_attr_t *thread_attr, void *(*callbackFunc)(void *), void *callBackFuncArguments )
         pthread_create(&timer_thread_ids[i], NULL, timer_thread, &queue); // passing NULL means the default thread intizliation.
     }
+
+    // נכון מאוד – במקרה של הקוד הזה, ה־main (או הקובץ main.c) משמש כ־producer thread. כלומר, הוא אחראי "לייצר" את האירועים על ידי קריאות ל־add_timeout_event שמוסיפות את האירועים לתור (TimerQueue). אירועים אלו (TimeoutEvent) מועברים לתור המשותף, והם "נצרכים" (consumed) על ידי חוטי התזמון (timer_thread), שהם ה־consumer threads.
 
     // Add multiple events to the queue
     add_timeout_event(&queue, 2000, sample_callback, "Event 1");

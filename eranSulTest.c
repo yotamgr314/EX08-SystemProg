@@ -1,93 +1,99 @@
-// REMEBER THAT IN THE EXAM ERAN SAID WE CAN ASSUME struct timeSpec is just sturct int that 
-// represent the expiration time!.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include <time.h>
 #include <errno.h>
 
-
-
-//Struct for a timeout event
-typedef struct TimeoutEvent
-{
+// Struct for a timeout event
+typedef struct TimeoutEvent {
     int timeout_ms; // Timeout in milliseconds
     void (*callback)(void *); // Callback function
     void *arg; // Argument for the callback function
     struct TimeoutEvent *next; // Next event in the queue
-}TimeoutEvent;
+} TimeoutEvent;
 
 // Struct for the timer queue
-typedef struct TimerQueue
-{
+typedef struct TimerQueue {
     TimeoutEvent *head;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } TimerQueue;
 
-
+int flag=1;
 // Timer thread function
-void *timer_thread(void *arg)
-{
+void *timer_thread(void *arg) {
     TimerQueue *queue = (TimerQueue *)arg;
     
-    while (1) {
+    while (flag) {
         pthread_mutex_lock(&queue->mutex);
         
         while (queue->head == NULL) {
-            pthread_cond_wait(&queue->cond, &queue->mutex)
+            pthread_cond_wait(&queue->cond, &queue->mutex);
         }
         
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += queue->head->timeout_ms / 1000;
+        ts.tv_nsec += (queue->head->timeout_ms % 1000) * 1000000;
+        if (ts.tv_nsec >= 1000000000) {
+            ts.tv_sec++;
+            ts.tv_nsec -= 1000000000;
+        }
 
-        int res = pthread_cond_timedwait(&queue->cond, &queue->mutex, &queue->ts);
+        int res = pthread_cond_timedwait(&queue->cond, &queue->mutex, &ts);
         
-        if (res == ETIMEDOUT) 
-        {
+        if (res == ETIMEDOUT) {
             TimeoutEvent *event = queue->head;
             queue->head = event->next;
+            pthread_mutex_unlock(&queue->mutex);
             
             // Perform the callback
             event->callback(event->arg);
             free(event);
-        }
+        } else {
             pthread_mutex_unlock(&queue->mutex);
-     }
+        }
 
+    }
+//gracefull termination
+    
+    return NULL;
 }
 
-    
-
 // Function to add a new timeout event to the queue
-void add_message(struct timespec expiration, callback_t callback, void* data) {
-    TimerQueue * msg = (TimerQueue *)malloc(sizeof(message_t));
-    msg->expiration_time = expiration;
-    msg->callback = callback;
-    msg->data = data;
-    msg->next = NULL;
+void add_timeout_event(TimerQueue *queue, int timeout_ms, void (*callback)(void *), void *arg) {
+    TimeoutEvent *new_event = (TimeoutEvent *)malloc(sizeof(TimeoutEvent));
+    new_event->timeout_ms = timeout_ms;
+    new_event->callback = callback;
+    new_event->arg = arg;
+    new_event->next = NULL;
 
-    pthread_mutex_lock(&timer_list.mutex);
+    pthread_mutex_lock(&queue->mutex);
+    
+    if (queue->head == NULL) {
+        queue->head = new_event;
+    } else {
+        TimeoutEvent *current = queue->head;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = new_event;
+    }
 
-    // Insert the message into the sorted list by expiration time
-    message_t* current = timer_list.head;
-    while (current->next && current-> next->expiration_time < expiration ){
-        current =  current->next;
-   }
-    msg->next = current  ->next 
-   current -> next = msg;
-
-    pthread_cond_signal(&timer_list.cond);
-    pthread_mutex_unlock(&timer_list.mutex);
+    pthread_cond_signal(&queue->cond);
+    pthread_mutex_unlock(&queue->mutex);
 }
 
 // Sample callback function
-void sample_callback(void *arg){
+void sample_callback(void *arg) {
     char *message = (char *)arg;
     printf("Timer expired: %s\n", message);
 }
 
-
-//Main function to demonstrate usage
+// Main function to demonstrate usage
 int main() {
     TimerQueue queue = {NULL, PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER};
     pthread_t timer_thread_id;
@@ -95,9 +101,7 @@ int main() {
     pthread_create(&timer_thread_id, NULL, timer_thread, &queue);
 
     add_timeout_event(&queue, 2000, sample_callback, "Event 1");
-// add one before closest timeout
     add_timeout_event(&queue, 1000, sample_callback, "Event 2");
-// add one after closest timeout
     add_timeout_event(&queue, 3000, sample_callback, "Event 3");
 
     pthread_join(timer_thread_id, NULL);
